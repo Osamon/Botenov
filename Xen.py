@@ -36,8 +36,8 @@ def plot_csv_amperage(a):
 	ax1.set_title(name + '.csv')
 	savefig(r'out\csv_amperage\\' + name + '.png', orientation='landscape', papertype='a4', format='png')
 	print()
-	print(parametr_1[0])
-	print(parametr_3[0])
+	print(f'k_{keys[1]} = ', parametr_1[0])
+	print(f'k_{keys[2]} = ', parametr_3[0])
 	print()
 	return data
 
@@ -84,7 +84,7 @@ def plot_csv_half_sum(a):
 	ax1.set_title(name + '.csv') 
 	savefig(r'out\csv_half_sum\\' + name + '.png', orientation='landscape', papertype='a4', format='png')
 	print()
-	print(parametr_1[0])
+	print(f'k_({keys[1]} + {keys[2]})/2 = ', parametr_1[0])
 	print()
 	return data
 
@@ -101,12 +101,9 @@ def plot_csv_half_sum_all(a):
 		ax1.plot(np.array(data[keys[3]]), func, color = np.random.rand(3), label = 'func_for_' + f'({keys[1]} + {keys[2]})/2') 
 	ax1.set_xlabel(u'offset, %')
 	ax1.set_ylabel(u'$(I_{1} + I_{2})/2$')
-	ax1.legend()
+	ax1.legend()	
 	ax1.set_title('all') 
 	savefig(r'out\csv_half_sum\all.png', orientation='landscape', papertype='a4', format='png')
-	print()
-	print(parametr_1[0])
-	print()
 	return data
 
 
