@@ -5,10 +5,10 @@
 import numpy as np
 import glob
 import h5py as h5
-# from dynmodel import *
 from mc2py.zgiw import *
 import matplotlib.pyplot as plt
 import pandas as pd
+import shutil
 
 def get_data_model(v):
     #v = getv()
@@ -48,7 +48,7 @@ def get_data_model(v):
     }
     return params
 
-def w_from_v2w_burn_data(params):
+def w_from_v2w_burn_data(params, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
 
     # get_data_model() # получение данных для алгоритма из модели
     try:
@@ -85,8 +85,8 @@ def w_from_v2w_burn_data(params):
     Nv = 21 #Размерность вектора факторов
     Nf = Nw*Nv
 
-    with h5.File(r'E:\projects\example\akpm_for_simulator.h5', "r") as rf:
-        aaa = rf['i_norm'][:]
+    with h5.File(file_out, "r") as rf:
+        #aaa = rf['i_norm'][:]
         v2w_burn_data = rf['lasso/0/0/v2w_burn_data'][:]
         w2Kz = rf['w2Kz'][:]
     x0 = v2w_burn_data[0]
@@ -117,26 +117,40 @@ def w_from_v2w_burn_data(params):
     #koef = make_dyn_koef(2, 4, glob.glob(r'E:\projects\example\dynamic_5.h5'), ld(r'E:\projects\example\basedims.json'), ld(r'E:\projects\example\defaults.pkl'), 0.0, 1)
     #koef = koef[0][0][0]['v2w']
     q = [i1, i2, i3, i2*h7, i2*h11, i2*h12, i2*h7*h7, i2*h11*h11, i2*h12*h12, i2*h7*h7*h7, i2*h11*h11*h11, i2*h12*h12*h12, i2*h7*h7*h7*h7, i2*h11*h11*h11*h11, i2*h12*h12*h12*h12, i1*i3,0,0,0,0,0]
-    koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
-                 'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
     koeffs_garm = np.matmul(out, q)
     #w.append(np.sum(np.matmul(w2Kz, koeffs_garm)))
     w = np.sum(np.matmul(w2Kz, koeffs_garm))
     return w
     #plt.plot(burn_list, w)
     #plt.show()
-    '''
+    
+def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simulator_refs.h5', file_out=r'E:/projects/example/akpm_for_simulator.h5'):
     #Формирование файла koeff.csv
+    koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
+             'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
     itog = {}
     for i in range(0,42,2):
     	asd = []
     	for j in range(i,4200,42):
     		asd.append(j+2)
-    	print(koeFF[int(i/2)], '', asd)
+    	if dict_index is None:
+            print(koeFF[int(i/2)], '', asd)
     	itog[f'{koeFF[int(i/2)]}'] = asd
-
+    
     DF = pd.DataFrame.from_records(itog)
     DF.to_csv(r'koeff.csv', sep="\t")
-    '''
 
-#w_from_v2w_burn_data({"burn": 0})
+    shutil.copyfile(file_in, file_out)
+    
+    if dict_index != None:
+        
+        with h5.File(file_in, "r") as rf:
+            v2w_burn_data = rf['lasso/0/0/v2w_burn_data'][:]
+
+        for k,v in dict_index.items():
+            for i in range(len(itog[k])):
+                v2w_burn_data[itog[k][i]] = v2w_burn_data[itog[k][i]]*v
+
+        with h5.File(file_out, 'a') as f:
+            dset = f['lasso/0/0/v2w_burn_data']
+            dset[:] = v2w_burn_data
