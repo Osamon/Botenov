@@ -2,6 +2,7 @@
 Этот скрипт восстанавливает энерговыделение в активной зоне по v2w_burn_data
 А так же формирует файл koeff.csv, в котором содержатся индексы коэффициентов при каждом из слагаемых в полиноме для каждой гармоники при выгорании burn, с которыми они входят в массив v2w_burn_data
 '''
+import pickle as pkl
 import numpy as np
 import glob
 import h5py as h5
@@ -15,9 +16,9 @@ def get_data_model(v):
     #v.syncro(1)
     #v.step()
     burn = float(v['YMTIME_BRN'])
-    wakpm = float(v["YQ_AKPM_WT(1,1)"])
-    ymintpow = float(v["ymintpow"])
     waknp_model = float(v["YQ_W_AKNP(1,1)"])
+    wakpm_model = float(v["YQ_AKPM_WT(1,1)"])
+    ymintpow = float(v["ymintpow"])
     i1 = float(v['yq_i_aknp_chan(1,1)'])
     i2 = float(v['yq_i_aknp_chan(1,2)'])
     i3 = float(v['yq_i_aknp_chan(1,3)'])
@@ -35,10 +36,13 @@ def get_data_model(v):
     i2 = i2/i2_0
     i3 = i3/i3_0
 
-    params = {"burn": burn,
-              "wakpm": wakpm,
+    waknp = (i1+i3)/2
+
+    point = {"burn": burn,
+              "waknp": waknp,
               "ymintpow": ymintpow,
               "waknp_model": waknp_model,
+              "wakpm_model": wakpm_model,
               "i1": i1,
               "i2": i2,
               "i3": i3,
@@ -46,38 +50,47 @@ def get_data_model(v):
               "h11": h11,
               "h12": h12,
     }
-    return params
+    return point
 
-def w_from_v2w_burn_data(params, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
+def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
 
     # get_data_model() # получение данных для алгоритма из модели
-    try:
-        burn = params["burn"]
-    except Exception:
+    if params != None:
+        try:
+            burn = params["burn_list"]
+        except Exception:
+            burn = 1
+        try:
+            i1 = params["i1_list"]
+        except Exception:
+            i1 = 1
+        try:
+            i2 = params["i2_list"]
+        except Exception:
+            i2 = 1
+        try:
+            i3 = params["i3_list"]
+        except Exception:
+            i3 = 1
+        try:
+            h7 = params["h7"]
+        except Exception:
+            h7 = 1
+        try:
+            h11 = params["h11"]
+        except Exception:
+            h11 = 1
+        try:
+            h12 = params["h12"]
+        except Exception:
+            h12 = 1
+    else:
         burn = 1
-    try:
-        i1 = params["i1"]
-    except Exception:
         i1 = 1
-    try:
-        i2 = params["i2"]
-    except Exception:
         i2 = 1
-    try:
-        i3 = params["i3"]
-    except Exception:
         i3 = 1
-    try:
-        h7 = params["h7"]
-    except Exception:
         h7 = 1
-    try:
-        h11 = params["h11"]
-    except Exception:
         h11 = 1
-    try:
-        h12 = params["h12"]
-    except Exception:
         h12 = 1
 
     Nt = 10 #количество точек по выгоранию
@@ -86,7 +99,6 @@ def w_from_v2w_burn_data(params, file_out=r'E:/projects/example/akpm_for_simulat
     Nf = Nw*Nv
 
     with h5.File(file_out, "r") as rf:
-        #aaa = rf['i_norm'][:]
         v2w_burn_data = rf['lasso/0/0/v2w_burn_data'][:]
         w2Kz = rf['w2Kz'][:]
     x0 = v2w_burn_data[0]
@@ -95,7 +107,7 @@ def w_from_v2w_burn_data(params, file_out=r'E:/projects/example/akpm_for_simulat
     data = np.reshape(v2w_burn_data, (Nt,Nf,2))
 
     #Восстановление энерговыделения в активной зоне по v2w_burn_data
-    #w =[]
+    #wakpm =[]
     #burn_list = np.arange(0, 300, 10)
     #for burn in burn_list:
     out = []
@@ -118,12 +130,12 @@ def w_from_v2w_burn_data(params, file_out=r'E:/projects/example/akpm_for_simulat
     #koef = koef[0][0][0]['v2w']
     q = [i1, i2, i3, i2*h7, i2*h11, i2*h12, i2*h7*h7, i2*h11*h11, i2*h12*h12, i2*h7*h7*h7, i2*h11*h11*h11, i2*h12*h12*h12, i2*h7*h7*h7*h7, i2*h11*h11*h11*h11, i2*h12*h12*h12*h12, i1*i3,0,0,0,0,0]
     koeffs_garm = np.matmul(out, q)
-    #w.append(np.sum(np.matmul(w2Kz, koeffs_garm)))
-    w = np.sum(np.matmul(w2Kz, koeffs_garm))
-    return w
-    #plt.plot(burn_list, w)
+    #wakpm.append(np.sum(np.matmul(w2Kz, koeffs_garm)))
+    #plt.plot(burn_list, wakpm)
     #plt.show()
-    
+    wakpm = np.sum(np.matmul(w2Kz, koeffs_garm))
+    return wakpm
+
 def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simulator_refs.h5', file_out=r'E:/projects/example/akpm_for_simulator.h5'):
     #Формирование файла koeff.csv
     koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
@@ -136,14 +148,14 @@ def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simula
     	if dict_index is None:
             print(koeFF[int(i/2)], '', asd)
     	itog[f'{koeFF[int(i/2)]}'] = asd
-    
+
     DF = pd.DataFrame.from_records(itog)
     DF.to_csv(r'koeff.csv', sep="\t")
 
     shutil.copyfile(file_in, file_out)
-    
+
     if dict_index != None:
-        
+
         with h5.File(file_in, "r") as rf:
             v2w_burn_data = rf['lasso/0/0/v2w_burn_data'][:]
 
@@ -154,3 +166,130 @@ def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simula
         with h5.File(file_out, 'a') as f:
             dset = f['lasso/0/0/v2w_burn_data']
             dset[:] = v2w_burn_data
+
+def process():
+    v=getv()
+    v.load_state(r"KIRIN/B01_K01_Nominal_BOC") #B02_K02_Nominal_BOC_0-01eff_days.sta")
+    v.step(n=1)
+    v.syncro(1)
+    v["KEY1_SHUNT_AZ1"] += 1
+    v["KEY_SHUNT_URB"] += 1
+    v["KEY_SHUNT_PZ1"] += 1
+    v["KEY_SHUNT_PZ2"] += 1
+    v["KLARM_POS"] = 1
+    if float(v['YZTABLINKNKS']) == False:
+        v["YZKEYLINK2"] += 0.2 # переходим в режим НКС
+    v['#YM#YMFLAGSTAT'] = 1
+    v.step(n=5)
+    v.YZBORMODE = 2
+    v.step()
+    #shutil.copyfile(file_out, file_out_model)
+    v['YMBLOCKNUMBER_TO_LOAD'] = 2
+    v["YM_N_KAMP_TO_LOAD"] = 3
+    v["YM_XIPI_LDBRNBEG"] = 1  # Загружаем начало выбранной кампании
+    v.step(n=100)
+    v['#YM#YMFLAGSTAT'] = 1
+    #v["yztcam_key"] += 0.1
+    v['ym_flag_ake'] = 0 # Отключение непрерывной тарировки
+    v.step()
+    burn_list = []
+    i1_list = []
+    i2_list = []
+    i3_list = []
+    waknp = []
+    waknp_model = []
+    wakpm_model = []
+    ymintpow =[]
+    h7 = []
+    h11 = []
+    h12 = []
+
+    v['ymfast'] = 50000
+    burn = float(v['YMTIME_BRN'])
+    v["YMFLAG_BRN"] = 1
+    v["#YM#YMFLAG_BRN"] = 1
+    v.step()
+    while burn < 100:
+        point = get_data_model(v)
+
+        burn_list.append(point["burn"])
+        i1_list.append(point["i1"])
+        i2_list.append(point["i2"])
+        i3_list.append(point["i2"])
+        waknp.append(point["waknp"])
+        waknp_model.append(point["waknp_model"])
+        wakpm_model.append(point["wakpm_model"])
+        ymintpow.append(point["ymintpow"])
+        h7.append(point["h7"])
+        h11.append(point["h11"])
+        h12.append(point["h12"])
+
+        burn = point["burn"]
+        print(burn)
+        v.step()
+
+    v["YMFLAG_BRN"] = 0
+    v["#YM#YMFLAG_BRN"] = 0
+    v['ymfast'] = 1
+    v.step()
+    v.syncro(0)
+
+    dict_model = {"burn_list":burn_list,
+                  "i1_list":i1_list,
+                  "i2_list":i2_list,
+                  "i3_list":i3_list,
+                  "waknp":waknp,
+                  "waknp_model":waknp_model,
+                  "wakpm_model":wakpm_model,
+                  "ymintpow":ymintpow,
+                  "h7": h7,
+                  "h11": h11,
+                  "h12": h12,
+    }
+
+    with open(r'out/pkl/from_model.pkl', "wb") as resfile:
+        pkl.dump(dict_model, resfile)
+    print('Модель отработала')
+
+def plot(dict_index, wakpm):
+    with open(r'out/pkl/from_model.pkl', "rb") as resfile:
+        dict_model = pkl.load(resfile)
+    burn_list = dict_model["burn_list"]
+    i1_list = dict_model["i1_list"]
+    i2_list = dict_model["i2_list"]
+    i3_list = dict_model["i3_list"]
+    waknp = dict_model["waknp"]
+    waknp_model = dict_model["waknp_model"]
+    wakpm_model = dict_model["wakpm_model"]
+    ymintpow = dict_model["ymintpow"]
+
+    wakpm = np.array(wakpm)*100
+    print(wakpm[50])
+
+    ymintpow = np.array(ymintpow)
+    waknp = np.array(waknp)
+    wakpm_model = np.array(wakpm_model)
+
+    wakpm_norm = wakpm*(ymintpow[50]/wakpm[50])
+    waknp_norm = waknp*(ymintpow[50]/waknp[50])
+    wakpm_model_norm = wakpm_model*(ymintpow[50]/wakpm_model[50])
+
+    begin = 5
+    plt.plot(burn_list[begin:],wakpm_norm[begin:],label='wakpm')#,marker='o')
+    plt.plot(burn_list[begin:],ymintpow[begin:],label='ymintpow')
+    plt.plot(burn_list[begin:],waknp_norm[begin:],label='waknp')
+    plt.plot(burn_list[begin:],wakpm_model_norm[begin:],label='wakpm_model')
+    plt.legend()
+    plt.savefig(f"out/power__I1_{dict_index['I1']}_I2_{dict_index['I2']}_I3_{dict_index['I3']}.png")
+    plt.clf()
+
+    """
+    plt.plot(burn_list[begin:],(np.array(i1_list))[begin:],label='i1')
+    plt.plot(burn_list[begin:],(np.array(i2_list))[begin:],label='i2')
+    plt.plot(burn_list[begin:],(np.array(i3_list))[begin:],label='i3')
+    plt.legend()
+    plt.savefig(f"out/amperage__I1_{dict_index['I1']}_I2_{dict_index['I2']}_I3_{dict_index['I3']}.png")
+    plt.clf()
+    """
+def sko(ymintpow, wakpm):
+    return np.sqrt(np.sum((np.array(ymintpow) - np.array(wakpm)*100)**2 ) / (len(ymintpow) - 1))
