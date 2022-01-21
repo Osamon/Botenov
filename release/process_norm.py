@@ -94,9 +94,9 @@ file_in = r'E:/projects/example/akpm_for_simulator_refs.h5'
 file_out = r'E:/projects/example/akpm_for_simulator.h5'
 file_out_model = r'E:/projects/NOVO2_Karu/Model_/MODEL/RO_PART/CORE/CPPLIB/INPUT_AKNP/XIPI1/novo2/B02/K03/akpm_for_simulator.h5'
 
-dict_index_0 = {"I1":np.linspace(0,11,100),
-                "I2":np.linspace(0,11,100),
-                "I3":np.linspace(0,11,100),
+dict_index_0 = {"I1":np.linspace(0,9.9,100),
+                "I2":np.linspace(0,9.9,100),
+                "I3":np.linspace(0,9.9,100),
 }
 
 dict_index = {}
