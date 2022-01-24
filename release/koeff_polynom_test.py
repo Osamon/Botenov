@@ -53,7 +53,7 @@ def get_data_model(v):
     return point
 
 def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
-
+    '''Восстановление энерговыделения в активной зоне по v2w_burn_data'''
     # get_data_model() # получение данных для алгоритма из модели
     if params != None:
         try:
@@ -106,7 +106,6 @@ def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_si
     v2w_burn_data = v2w_burn_data[2:]
     data = np.reshape(v2w_burn_data, (Nt,Nf,2))
 
-    #Восстановление энерговыделения в активной зоне по v2w_burn_data
     #wakpm =[]
     #burn_list = np.arange(0, 300, 10)
     #for burn in burn_list:
@@ -137,7 +136,7 @@ def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_si
     return wakpm
 
 def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simulator_refs.h5', file_out=r'E:/projects/example/akpm_for_simulator.h5'):
-    #Формирование файла koeff.csv
+    '''Формирование файла koeff.csv'''
     koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
              'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
     itog = {}
@@ -168,6 +167,7 @@ def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simula
             dset[:] = v2w_burn_data
 
 def process():
+    print('Работаю с моделью')
     v=getv()
     v.load_state(r"KIRIN/B01_K01_Nominal_BOC") #B02_K02_Nominal_BOC_0-01eff_days.sta")
     v.step(n=1)
@@ -251,8 +251,91 @@ def process():
         pkl.dump(dict_model, resfile)
     print('Модель отработала')
 
+def process_upz():
+    print('Работаю с моделью')
+    v=getv()
+    v.load_state(r"KIRIN/B01_K01_Nominal_BOC") #B02_K02_Nominal_BOC_0-01eff_days.sta")
+    v.syncro(1)
+    v.step(n=1)
+
+    v.step()
+    burn_list = []
+    i1_list = []
+    i2_list = []
+    i3_list = []
+    waknp = []
+    waknp_model = []
+    wakpm_model = []
+    ymintpow = []
+    h7 = []
+    h11 = []
+    h12 = []
+    step = 0
+    v.step()
+    while step < 10:
+        point = get_data_model(v)
+
+        burn_list.append(point["burn"])
+        i1_list.append(point["i1"])
+        i2_list.append(point["i2"])
+        i3_list.append(point["i2"])
+        waknp.append(point["waknp"])
+        waknp_model.append(point["waknp_model"])
+        wakpm_model.append(point["wakpm_model"])
+        ymintpow.append(point["ymintpow"])
+        h7.append(point["h7"])
+        h11.append(point["h11"])
+        h12.append(point["h12"])
+
+        print(step)
+        step+=1
+        v.step()
+
+    v['11JDY01CH403_SBV1'] = 1
+    print('Сработала УПЗ')
+    step = 0
+    v.step()
+    while step < 100:
+        point = get_data_model(v)
+
+        burn_list.append(point["burn"])
+        i1_list.append(point["i1"])
+        i2_list.append(point["i2"])
+        i3_list.append(point["i2"])
+        waknp.append(point["waknp"])
+        waknp_model.append(point["waknp_model"])
+        wakpm_model.append(point["wakpm_model"])
+        ymintpow.append(point["ymintpow"])
+        h7.append(point["h7"])
+        h11.append(point["h11"])
+        h12.append(point["h12"])
+
+        print(step)
+        step+=1
+        v.step()
+
+    v.step()
+    v.syncro(0)
+
+    dict_model = {"burn_list":burn_list,
+                  "i1_list":i1_list,
+                  "i2_list":i2_list,
+                  "i3_list":i3_list,
+                  "waknp":waknp,
+                  "waknp_model":waknp_model,
+                  "wakpm_model":wakpm_model,
+                  "ymintpow":ymintpow,
+                  "h7": h7,
+                  "h11": h11,
+                  "h12": h12,
+    }
+
+    with open(r'out/upz/pkl/from_model.pkl', "wb") as resfile:
+        pkl.dump(dict_model, resfile)
+    print('Модель отработала')
+
 def plot(dict_index, wakpm):
-    with open(r'out/pkl/from_model.pkl', "rb") as resfile:
+    with open(r'out/upz/pkl/from_model.pkl', "rb") as resfile:
         dict_model = pkl.load(resfile)
     burn_list = dict_model["burn_list"]
     i1_list = dict_model["i1_list"]
@@ -274,15 +357,15 @@ def plot(dict_index, wakpm):
     waknp_norm = waknp*(ymintpow[50]/waknp[50])
     wakpm_model_norm = wakpm_model*(ymintpow[50]/wakpm_model[50])
 
-    begin = 5
-    plt.plot(burn_list[begin:],wakpm_norm[begin:],label='wakpm')#,marker='o')
-    plt.plot(burn_list[begin:],ymintpow[begin:],label='ymintpow')
-    plt.plot(burn_list[begin:],waknp_norm[begin:],label='waknp')
-    plt.plot(burn_list[begin:],wakpm_model_norm[begin:],label='wakpm_model')
+    step_list = np.linspace(0,110,110)
+    begin = 0
+    plt.plot(step_list[begin:],wakpm_norm[begin:],label='wakpm')#,marker='o')
+    plt.plot(step_list[begin:],ymintpow[begin:],label='ymintpow')
+    plt.plot(step_list[begin:],waknp_norm[begin:],label='waknp')
+    plt.plot(step_list[begin:],wakpm_model_norm[begin:],label='wakpm_model')
     plt.legend()
-    plt.savefig(f"out/power__I1_{dict_index['I1']}_I2_{dict_index['I2']}_I3_{dict_index['I3']}.png")
+    plt.savefig(f"out/upz/power__I2_H7_{dict_index['I2_H7']}.png")
     plt.clf()
-
     """
     plt.plot(burn_list[begin:],(np.array(i1_list))[begin:],label='i1')
     plt.plot(burn_list[begin:],(np.array(i2_list))[begin:],label='i2')
@@ -293,3 +376,23 @@ def plot(dict_index, wakpm):
     """
 def sko(ymintpow, wakpm):
     return np.sqrt(np.sum((np.array(ymintpow) - np.array(wakpm)*100)**2 ) / (len(ymintpow) - 1))
+
+def dependence(dict_index_0, key, skolist):
+    '''Это для выявления зависимости СКО от разных h5'''
+    fig = plt.figure()
+    ax = fig.add_subplot(111)#, projection='3d')
+    ax.plot(dict_index_0[key], skolist, "bo")
+    ax.legend('sko')
+    ax.set_xlabel(f'Коэф при {key}')
+    #ax.set_ylabel(u'Коэф при I1')
+    ax.set_ylabel(u'СКО')
+    #plt.plot(dict_index_0["I1"], skolist,label='sko', marker='o')
+    plt.savefig(f"out/upz/pkl/SKO_{key}.png")
+    print('Картинка СКО готова')
+    #plt.show()
+    #plt.clf()
+
+#print(__doc__)
+#print(get_set_index.__doc__)
+#print(w_from_v2w_burn_data.__doc__)
+#print(plot.__doc__)
