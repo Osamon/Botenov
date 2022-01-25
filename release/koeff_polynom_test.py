@@ -1,6 +1,7 @@
 '''
 Этот скрипт восстанавливает энерговыделение в активной зоне по v2w_burn_data
 А так же формирует файл koeff.csv, в котором содержатся индексы коэффициентов при каждом из слагаемых в полиноме для каждой гармоники при выгорании burn, с которыми они входят в массив v2w_burn_data
+Все функции, непосредственно взаимодействующие с моделью, были протестированы на этой модели: E:\projects\NOVO2_Karu\Model_\MODEL\karru_nv_2giw_execute.bat
 '''
 import pickle as pkl
 import numpy as np
@@ -11,7 +12,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import shutil
 
+'''koeFF - этот массив содержит названия коэффициентов, стоящих по порядку перед слагаемыми в полиноме мощности, названия этих коэффициентов соответсвуют тем входным сигналам, перед которыми они стоят в полиноме'''
+koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
+         'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
+
 def get_data_model(v):
+     '''Эта функция позволяет набирать входные данные для работы АКПМ (w_from_v2w_burn_data) из модели.
+        Всё работает хорошо, но важно проверять работоспособность используемых ККС для конкретной модели и не забывать изменять значения токов в номинале (i1_0, i2_0, i3_0) для соответствующей модели, блока и кампании'''
+    
     #v = getv()
     #v.syncro(1)
     #v.step()
@@ -53,7 +61,9 @@ def get_data_model(v):
     return point
 
 def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
-    '''Восстановление энерговыделения в активной зоне по v2w_burn_data'''
+     '''Восстановление энерговыделения в активной зоне по v2w_burn_data (имитация АКПМ),
+        всё в этой функции работает хорошо'''
+    
     # get_data_model() # получение данных для алгоритма из модели
     if params != None:
         try:
@@ -136,9 +146,10 @@ def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_si
     return wakpm
 
 def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simulator_refs.h5', file_out=r'E:/projects/example/akpm_for_simulator.h5'):
-    '''Формирование файла koeff.csv'''
-    koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
-             'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
+     '''Формирование файла koeff.csv'''
+     '''Эта функция позволяет менять коэффициенты при любых слагаемых в полиноме мощности в каждой из 10 гармоник, во всех десяти точках по выгоранию.
+        На выходе получаем изменённый файл akpm_for_simulator_refs.h5. Всё рабоатет хорошо'''
+    
     itog = {}
     for i in range(0,42,2):
     	asd = []
@@ -161,12 +172,16 @@ def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simula
         for k,v in dict_index.items():
             for i in range(len(itog[k])):
                 v2w_burn_data[itog[k][i]] = v2w_burn_data[itog[k][i]]*v
+                v2w_burn_data[itog[k][i]+1] = v2w_burn_data[itog[k][i]+1]*v
 
         with h5.File(file_out, 'a') as f:
             dset = f['lasso/0/0/v2w_burn_data']
             dset[:] = v2w_burn_data
 
 def process():
+     '''Эта функция просто набирает данные из модели, в процессе выгорание активной зоны.
+        Всё работает хорошо, но для корректной работы необходимо проверять актуальнсоть ККС'''
+    
     print('Работаю с моделью')
     v=getv()
     v.load_state(r"KIRIN/B01_K01_Nominal_BOC") #B02_K02_Nominal_BOC_0-01eff_days.sta")
@@ -185,7 +200,7 @@ def process():
     v.step()
     #shutil.copyfile(file_out, file_out_model)
     v['YMBLOCKNUMBER_TO_LOAD'] = 2
-    v["YM_N_KAMP_TO_LOAD"] = 3
+    v["YM_N_KAMP_TO_LOAD"] = 2
     v["YM_XIPI_LDBRNBEG"] = 1  # Загружаем начало выбранной кампании
     v.step(n=100)
     v['#YM#YMFLAGSTAT'] = 1
@@ -252,6 +267,9 @@ def process():
     print('Модель отработала')
 
 def process_upz():
+     '''Эта функция моделирует срабатывание УПЗ.
+        Всё работает хорошо, но для корректной работы необходимо проверять актуальнсоть ККС'''
+
     print('Работаю с моделью')
     v=getv()
     v.load_state(r"KIRIN/B01_K01_Nominal_BOC") #B02_K02_Nominal_BOC_0-01eff_days.sta")
@@ -335,6 +353,9 @@ def process_upz():
     print('Модель отработала')
 
 def plot(dict_index, wakpm):
+     '''Эта функция нужна просто для отрисовких данных.
+        Всё работает хорошо'''
+
     with open(r'out/upz/pkl/from_model.pkl', "rb") as resfile:
         dict_model = pkl.load(resfile)
     burn_list = dict_model["burn_list"]
@@ -347,7 +368,7 @@ def plot(dict_index, wakpm):
     ymintpow = dict_model["ymintpow"]
 
     wakpm = np.array(wakpm)*100
-    print(wakpm[50])
+    print(wakpm)
 
     ymintpow = np.array(ymintpow)
     waknp = np.array(waknp)
@@ -375,10 +396,14 @@ def plot(dict_index, wakpm):
     plt.clf()
     """
 def sko(ymintpow, wakpm):
+    '''Эта функция считает СКО, всё работает хорошо'''
+
     return np.sqrt(np.sum((np.array(ymintpow) - np.array(wakpm)*100)**2 ) / (len(ymintpow) - 1))
 
 def dependence(dict_index_0, key, skolist):
-    '''Это для выявления зависимости СКО от разных h5'''
+     '''Это для выявления зависимости СКО от разных h5.
+        Здесь просто отрисовывается множество графиков зависимости СКО от изменения коэффициентов при различных слагаемых в полиноме мощности.
+        Всё работает хорошо'''
     fig = plt.figure()
     ax = fig.add_subplot(111)#, projection='3d')
     ax.plot(dict_index_0[key], skolist, "bo")
@@ -396,3 +421,17 @@ def dependence(dict_index_0, key, skolist):
 #print(get_set_index.__doc__)
 #print(w_from_v2w_burn_data.__doc__)
 #print(plot.__doc__)
+
+#dict_index = {}
+#for i in koeFF:
+#    dict_index[i] = 1
+dict_index = {'I3':1}
+get_set_index(dict_index)
+print(dict_index)
+print(w_from_v2w_burn_data())
+#for i in koeFF:
+#    dict_index[i] = 2
+dict_index = {'I3':10}
+get_set_index(dict_index)
+print(dict_index)
+print(w_from_v2w_burn_data())

@@ -16,7 +16,7 @@ koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11'
 
 dict_index_0 = {}
 #process()
-process_upz()
+#process_upz()
 for p in range(len(koeFF)):
     dict_index_0[f'{koeFF[p]}']=value
     dict_index = {}
@@ -75,7 +75,7 @@ for i in range(len(dict_index_0["I2_H7"])):
     get_set_index(dict_index, file_in, file_out)
     for j in range(len(dict_model["burn_list"])):
         for kk,vv in dict_model.items():
-            params[kk] = vv[60]
+            params[kk] = vv[j]
         wakpm.append(w_from_v2w_burn_data(params, file_out))
     skolist.append(sko(dict_model["ymintpow"], wakpm))
     plot(dict_index, wakpm)
