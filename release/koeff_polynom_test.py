@@ -16,8 +16,11 @@ import shutil
 '''
 koeFF - этот массив содержит названия коэффициентов, стоящих по порядку перед слагаемыми в полиноме мощности, названия этих коэффициентов соответсвуют тем входным сигналам, перед которыми они стоят в полиноме
 '''
-koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
-         'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
+#koeFF = ['I1', 'I2', 'I3', 'I2_H7', 'I2_H11', 'I2_H12', 'I2_H7_H7', 'I2_H11_H11', 'I2_H12_H12', 'I2_H7_H7_H7', 'I2_H11_H11_H11', 'I2_H12_H12_H12',
+#         'I2_H7_H7_H7_H7', 'I2_H11_H11_H11_H11', 'I2_H12_H12_H12_H12', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
+# для КАЭС3
+koeFF = ['I1', 'I2', 'I3', 'I2_H4', 'I2_H8', 'I2_H9', 'I2_H10', 'I2_H4_H4', 'I2_H8_H8', 'I2_H9_H9', 'I2_H10_H10', 'I2_H4_H4_H4', 'I2_H8_H8_H8', 'I2_H9_H9',  'I2_H10_H10',
+         'I2_H4_H4_H4_H4', 'I2_H8_H8_H8_H8', 'I2_H9_H9_H9_H9', 'I2_H10_H10_H10_H10', 'I1_I3', 'I1_Xe1', 'I1_Xe2', 'I1_Xe3', 'I1_Xe4', 'I1_Xe5']
 
 def get_data_model(v):
     '''
@@ -64,52 +67,79 @@ def get_data_model(v):
     }
     return point
 
-def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
+def dataFromTest():
+    with open(r'E:\projects\python_libs\akpm1200\data\data\kaln\b03\k13\out\tst_burn.pkl', 'rb') as f:
+        data = pkl.load(f)
+    return data
+
+def w_from_v2w_burn_data(t, data=None, params=None, file_out=r'E:/projects/example/akpm_for_simulator.h5'):
     '''Восстановление энерговыделения в активной зоне по v2w_burn_data (имитация АКПМ),
     всё в этой функции работает хорошо'''
 
     # get_data_model() # получение данных для алгоритма из модели
+    
+    poof = data._MakeSrez(t)
+    params = {"burn": float(poof['burn']),
+             #"waknp": waknp,
+             #"ymintpow": ymintpow,
+             #"waknp_model": waknp_model,
+             #"wakpm_model": wakpm_model,
+             "i1": float(poof['I'][0][0][0]),
+             "i2": float(poof['I'][0][0][1]),
+             "i3": float(poof['I'][0][0][2]),
+             "h4": float(poof['H'][0]),
+             "h8": float(poof['H'][1]),
+             "h9": float(poof['H'][2]),
+             "h10": float(poof['H'][3]),
+             "wt": float(poof['wt']),
+    }
+
     if params != None:
         try:
-            burn = params["burn_list"]
+            burn = params["burn"]
         except Exception:
             burn = 1
         try:
-            i1 = params["i1_list"]
+            i1 = params["i1"]
         except Exception:
             i1 = 1
         try:
-            i2 = params["i2_list"]
+            i2 = params["i2"]
         except Exception:
             i2 = 1
         try:
-            i3 = params["i3_list"]
+            i3 = params["i3"]
         except Exception:
             i3 = 1
         try:
-            h7 = params["h7"]
+            h4 = params["h4"]
         except Exception:
-            h7 = 1
+            h4 = 1
         try:
-            h11 = params["h11"]
+            h8 = params["h8"]
         except Exception:
-            h11 = 1
+            h8 = 1
         try:
-            h12 = params["h12"]
+            h9 = params["h9"]
         except Exception:
-            h12 = 1
+            h9 = 1
+        try:
+            h10 = params["h10"]
+        except Exception:
+            h10 = 1
     else:
         burn = 1
         i1 = 1
         i2 = 1
         i3 = 1
-        h7 = 1
-        h11 = 1
-        h12 = 1
+        h4 = 1
+        h8 = 1
+        h9 = 1
+        h10 = 1
 
     Nt = 10 #количество точек по выгоранию
     Nw = 10 #Размерность базиса по мощности
-    Nv = 21 #Размерность вектора факторов
+    Nv = 25 #Размерность вектора факторов
     Nf = Nw*Nv
 
     with h5.File(file_out, "r") as rf:
@@ -141,13 +171,30 @@ def w_from_v2w_burn_data(params=None, file_out=r'E:/projects/example/akpm_for_si
     out = np.reshape(out, (Nw,Nv))
     #koef = make_dyn_koef(2, 4, glob.glob(r'E:\projects\example\dynamic_5.h5'), ld(r'E:\projects\example\basedims.json'), ld(r'E:\projects\example\defaults.pkl'), 0.0, 1)
     #koef = koef[0][0][0]['v2w']
-    q = [i1, i2, i3, i2*h7, i2*h11, i2*h12, i2*h7*h7, i2*h11*h11, i2*h12*h12, i2*h7*h7*h7, i2*h11*h11*h11, i2*h12*h12*h12, i2*h7*h7*h7*h7, i2*h11*h11*h11*h11, i2*h12*h12*h12*h12, i1*i3,0,0,0,0,0]
+    q = [i1, i2, i3, i2*h4, i2*h8, i2*h9, i2*h10, i2*h4*h4, i2*h8*h8, i2*h9*h9, i2*h10*h10, i2*h4*h4*h4, i2*h8*h8*h8, i2*h9*h9*h9, i2*h10*h10*h10, i2*h4*h4*h4*h4, i2*h8*h8*h8*h8, i2*h9*h9*h9*h9, i2*h10*h10*h10*h10, i1*i3,0,0,0,0,0]
     koeffs_garm = np.matmul(out, q)
     #wakpm.append(np.sum(np.matmul(w2Kz, koeffs_garm)))
     #plt.plot(burn_list, wakpm)
     #plt.show()
-    wakpm = np.sum(np.matmul(w2Kz, koeffs_garm))
-    return wakpm
+    wakpm = np.sum(np.matmul(w2Kz, koeffs_garm))  
+    return wakpm, params['wt'], (params['i1'] + params['i3'])/2
+
+data = dataFromTest()
+wakpmList = []
+wtList = []
+waknpList = []
+for t in range(301):
+    wakpm, wt , waknp= w_from_v2w_burn_data(t*3600*24, data, file_out = r"E:\projects\python_libs\akpm1200\data\data\kaln\b03\k13\out\akpm_for_simulator.h5") 
+    wakpmList.append(wakpm)
+    wtList.append(wt)
+    waknpList.append(waknp)
+wakpmList = np.array(wakpmList)*100 
+waknpList = np.array(waknpList)*100
+plt.plot(wtList[0]*wakpmList/wakpmList[0], label='wakpm')
+plt.plot(wtList, label='wt')
+plt.plot(wtList[0]*waknpList/waknpList[0], label='waknp')
+plt.legend()
+plt.savefig("kaln3.png")
 
 def get_set_index(dict_index=None, file_in=r'E:/projects/example/akpm_for_simulator_refs.h5', file_out=r'E:/projects/example/akpm_for_simulator.h5'):
     '''Формирование файла koeff.csv'''
@@ -439,3 +486,4 @@ def dependence(dict_index_0, key, skolist):
 #get_set_index(dict_index)
 #print(dict_index)
 #print(w_from_v2w_burn_data())
+
